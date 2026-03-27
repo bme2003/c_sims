@@ -1,11 +1,8 @@
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
-#include <stdbool.h>
-#include <dirent.h>
-
+#include "utilities.h"
 
 void removeNewLineAtEndOfCharArray(char inputArray[])
 {
@@ -22,7 +19,50 @@ void removeNewLineAtEndOfCharArray(char inputArray[])
     }
 }
 
-bool commandAndArgCompare(char* inputArray[], int index, char string[])
+void initializeCommandArguments(char *commandLineArgs[])
+{
+    int commandLineArgsItr = 0;
+
+    for (commandLineArgsItr = 0; commandLineArgsItr < MAX_ARGUMENTS; commandLineArgsItr = commandLineArgsItr + 1)
+    {
+        commandLineArgs[commandLineArgsItr] = NULL;
+    }
+}
+
+void tokenizeUserInput(char inputArray[], char *commandLineArgs[])
+{
+    int userCharItr = 0;
+    int argNumber = 0;
+
+    while (inputArray[userCharItr] != '\0' && argNumber < MAX_ARGUMENTS - 1)
+    {
+        while (inputArray[userCharItr] == ' ')
+        {
+            userCharItr = userCharItr + 1;
+        }
+
+        if (inputArray[userCharItr] != '\0')
+        {
+            commandLineArgs[argNumber] = &inputArray[userCharItr];
+            argNumber = argNumber + 1;
+
+            while (inputArray[userCharItr] != '\0' && inputArray[userCharItr] != ' ')
+            {
+                userCharItr = userCharItr + 1;
+            }
+
+            if (inputArray[userCharItr] == ' ')
+            {
+                inputArray[userCharItr] = '\0';
+                userCharItr = userCharItr + 1;
+            }
+        }
+    }
+
+    commandLineArgs[argNumber] = NULL;
+}
+
+bool commandAndArgCompare(char *inputArray[], int index, const char string[])
 {
     int charIndex = 0;
 
@@ -37,6 +77,7 @@ bool commandAndArgCompare(char* inputArray[], int index, char string[])
         {
             return false;
         }
+
         charIndex = charIndex + 1;
     }
 
@@ -57,39 +98,35 @@ void listDirectory(const char *path)
 
     if (currentDirectory == NULL)
     {
-        printf("Bad path\n");
-        return;
+        printf("%s", MESSAGE_BAD_PATH);
     }
-
-    while ((entry = readdir(currentDirectory)) != NULL)
+    else
     {
-        printf("%s    ", entry->d_name);
+        while ((entry = readdir(currentDirectory)) != NULL)
+        {
+            printf("%s    ", entry->d_name);
+        }
+        printf("\n");
+
+        closedir(currentDirectory);
     }
-    printf("\n");
-
-    closedir(currentDirectory);
 }
-
 
 void changeDirectory(const char *path)
 {
     if (path == NULL)
     {
-        printf("cd requires a path\n");
+        printf("%s", MESSAGE_CD_PATH_REQUIRED);
     }
-    else
+    else if (chdir(path) != 0)
     {
-        if (chdir(path) != 0)
-        {
-            printf("Could not change dir, bad path.\n");
-        }
-
+        printf("%s", MESSAGE_BAD_PATH);
     }
 }
 
 void printShellPrompt(void)
 {
-    char currentDirectory[1024];
+    char currentDirectory[PATH_BUFFER_SIZE];
     char *username = getenv("USER");
     char *folderName = NULL;
     int lastSlashIndex = 0;
@@ -97,7 +134,7 @@ void printShellPrompt(void)
 
     if (username == NULL)
     {
-        username = "user";
+        username = PROMPT_FALLBACK_USER;
     }
 
     if (getcwd(currentDirectory, sizeof(currentDirectory)) != NULL)
@@ -110,12 +147,13 @@ void printShellPrompt(void)
             {
                 lastSlashIndex = charIndex;
             }
+
             charIndex = charIndex + 1;
         }
 
         if (currentDirectory[0] == '/' && currentDirectory[1] == '\0')
         {
-            folderName = currentDirectory;
+            folderName = ROOT_FOLDER_NAME;
         }
         else if (currentDirectory[lastSlashIndex + 1] != '\0')
         {
@@ -129,5 +167,36 @@ void printShellPrompt(void)
         printf("%s$ ", username);
     }
 
+    fflush(stdout);
+}
+
+void printWorkingDirectory(void)
+{
+    char currentDirectory[PATH_BUFFER_SIZE];
+
+    if (getcwd(currentDirectory, sizeof(currentDirectory)) != NULL)
+    {
+        printf("%s\n", currentDirectory);
+    }
+    else
+    {
+        printf("%s", MESSAGE_GETCWD_ERROR);
+    }
+}
+
+void printHelp(void)
+{
+    printf("Built-in commands:\n");
+    printf("  help   Show this help message\n");
+    printf("  pwd    Print the current working directory\n");
+    printf("  ls     List the current directory or a provided path\n");
+    printf("  cd     Change the current directory\n");
+    printf("  clear  Clear the screen\n");
+    printf("  exit   Exit the shell\n");
+}
+
+void clearScreen(void)
+{
+    printf("\033[2J\033[H");
     fflush(stdout);
 }
