@@ -8,5 +8,7 @@
 void removeNewLineAtEndOfCharArray(char inputArray[]);
 bool commandAndArgCompare(char* inputArray[], int index, char string[]);
 void listDirectory(const char *path);
+void changeDirectory(const char *path);
+void printShellPrompt(void);
 
 #endif

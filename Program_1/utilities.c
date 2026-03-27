@@ -69,3 +69,65 @@ void listDirectory(const char *path)
 
     closedir(currentDirectory);
 }
+
+
+void changeDirectory(const char *path)
+{
+    if (path == NULL)
+    {
+        printf("cd requires a path\n");
+    }
+    else
+    {
+        if (chdir(path) != 0)
+        {
+            printf("Could not change dir, bad path.\n");
+        }
+
+    }
+}
+
+void printShellPrompt(void)
+{
+    char currentDirectory[1024];
+    char *username = getenv("USER");
+    char *folderName = NULL;
+    int lastSlashIndex = 0;
+    int charIndex = 0;
+
+    if (username == NULL)
+    {
+        username = "user";
+    }
+
+    if (getcwd(currentDirectory, sizeof(currentDirectory)) != NULL)
+    {
+        folderName = currentDirectory;
+
+        while (currentDirectory[charIndex] != '\0')
+        {
+            if (currentDirectory[charIndex] == '/')
+            {
+                lastSlashIndex = charIndex;
+            }
+            charIndex = charIndex + 1;
+        }
+
+        if (currentDirectory[0] == '/' && currentDirectory[1] == '\0')
+        {
+            folderName = currentDirectory;
+        }
+        else if (currentDirectory[lastSlashIndex + 1] != '\0')
+        {
+            folderName = &currentDirectory[lastSlashIndex + 1];
+        }
+
+        printf("%s@%s$ ", username, folderName);
+    }
+    else
+    {
+        printf("%s$ ", username);
+    }
+
+    fflush(stdout);
+}

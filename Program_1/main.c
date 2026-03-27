@@ -23,8 +23,8 @@ int main(void)
     // Create any counters needed for splitting the input into tokens
     char userInput[100];
     char* commandLineArgs[40];
-    int childProcessId = 0;
-    int childProcessStatus;
+    //int childProcessId = 0;
+    //int childProcessStatus;
     bool shellStatus = true;
     bool enteredNothing = false;
     int userCharItr;
@@ -41,6 +41,7 @@ int main(void)
     while (shellStatus)
     {
         // Read one full line of input from the keyboard
+        printShellPrompt();
         if (fgets(userInput, 100, stdin) == NULL)
         {
             printf("No user input entered\n");
@@ -140,12 +141,28 @@ int main(void)
                 }
             }
 
+            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "cd"))
+            {
+                if (commandLineArgs[1] != NULL)
+                {
+                    changeDirectory(commandLineArgs[1]);
+                }
+            }
+
+            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "clear"))
+            {
+                // how did someone find how to make this sequennce....
+                printf("\033[2J\033[H");
+                fflush(stdout);
+            }
 
             else if (!enteredNothing)
             {
                 // Let the loop end naturally, then fgets will ask for input again
                 printf("Unknown command\n");
             }
+
+            
 
 
         }
