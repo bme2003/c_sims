@@ -1,176 +1,130 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
 #include <stdbool.h>
-#include <dirent.h>
+#include <stdio.h>
 #include "utilities.h"
-
-
-// Function prototypes:
-
 
 
 int main(void)
 {
-    // Declare Variables
-    // Create a character array to store the full line of user input
-    // Create an array of character pointers to hold the command and its arguments
-    // Create an integer for the child process ID
-    // Create an integer to track the child process status
-    // Create an integer or boolean to control whether the shell should keep running
-    // Create any counters needed for splitting the input into tokens
-    char userInput[100];
-    char* commandLineArgs[40];
-    //int childProcessId = 0;
-    //int childProcessStatus;
+    // Vars
+    char userInput[INPUT_BUFFER_SIZE];
+    char *commandLineArgs[MAX_ARGUMENTS];
     bool shellStatus = true;
     bool enteredNothing = false;
-    int userCharItr;
-    int commandLineArgsItr;
-    int argNumber;
 
 
-    // Logic
-    // Start a loop that continues running until the user chooses to exit
+    // Welcome print
 
-    // Display a shell prompt so the user knows input is expected
-    printf("Command Line Tool Active, for help type \"help\".\n\n\n\n");
+    printf("%s", MESSAGE_WELCOME);
 
     while (shellStatus)
     {
-        // Read one full line of input from the keyboard
+        // user shell prompt: user folder
         printShellPrompt();
-        if (fgets(userInput, 100, stdin) == NULL)
+
+
+        // user input
+        if (fgets(userInput, INPUT_BUFFER_SIZE, stdin) == NULL)
         {
-            printf("No user input entered\n");
+            printf("%s", MESSAGE_INPUT_ERROR);
         }
+
         else
         {
-            // Remove new line from end of user input
+
             removeNewLineAtEndOfCharArray(userInput);
+            initializeCommandArguments(commandLineArgs);
+            tokenizeUserInput(userInput, commandLineArgs);
 
-            // Reset every argument pointer before parsing the next command
-            for (commandLineArgsItr = 0; commandLineArgsItr < 40; commandLineArgsItr = commandLineArgsItr + 1)
-            {
-                commandLineArgs[commandLineArgsItr] = NULL;
-            }
-
-            // Split the input in place
-            // Each time a word begins, store its address in commandLineArgs
-            // Each time a separating space is found, replace it with '\0'
-            // This turns one input line into many small strings inside userInput
-            userCharItr = 0;
-            argNumber = 0;
-
-            while (userInput[userCharItr] != '\0' && argNumber < 39)
-            {
-                // Skip spaces between arguments
-                while (userInput[userCharItr] == ' ')
-                {
-                    userCharItr = userCharItr + 1;
-                }
-
-                // Only store another word if there is still one to read
-                if (userInput[userCharItr] != '\0')
-                {
-                    // Save the address of the start of the current word
-                    commandLineArgs[argNumber] = &userInput[userCharItr];
-                    argNumber = argNumber + 1;
-
-                    // Move to the end of the current word
-                    while (userInput[userCharItr] != '\0' && userInput[userCharItr] != ' ')
-                    {
-                        userCharItr = userCharItr + 1;
-                    }
-
-                    // End the current word and move to the next character
-                    if (userInput[userCharItr] == ' ')
-                    {
-                        userInput[userCharItr] = '\0';
-                        userCharItr = userCharItr + 1;
-                    }
-                }
-            }
-
-            // Add a NULL pointer at the end so later code knows where the args stop
-            commandLineArgs[argNumber] = NULL;
-
-            // If the user just pressed Enter, do nothing and let the loop ask again
             if (commandLineArgs[0] == NULL)
             {
                 enteredNothing = true;
             }
+
             else
             {
                 enteredNothing = false;
             }
 
-
-
-
-            if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "exit"))
+            if (!enteredNothing)
             {
-                printf("Exiting\n");
-                shellStatus = false;
-            }
 
-
-
-            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "help"))
-            {
-                printf("usage: command [arguments]\n");
-            }
-
-
-
-            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "ls"))
-            {
-                // If the user did not provide a path, list the current directory
-                // If the user did provide a path, use that argument as the directory path
-                //printf("Listing...\n");
-
-                if (commandLineArgs[1] == NULL)
+                if (commandAndArgCompare(commandLineArgs, 0, COMMAND_EXIT))
                 {
-                    listDirectory(".");
+                    printf("%s", MESSAGE_EXITING);
+                    shellStatus = false;
+                }
+
+                else if (commandAndArgCompare(commandLineArgs, 0, COMMAND_HELP))
+                {
+
+                    if (commandLineArgs[1] == NULL)
+                    {
+                        printHelp();
+                    }
+
+                    else
+                    {
+                        printf("%s", MESSAGE_HELP_USAGE);
+                    }
+
+                }
+                else if (commandAndArgCompare(commandLineArgs, 0, COMMAND_LS))
+                {
+                    if (commandLineArgs[1] == NULL)
+                    {
+                        listDirectory(DEFAULT_LIST_DIRECTORY);
+                    }
+                    else if (commandLineArgs[2] == NULL)
+                    {
+                        listDirectory(commandLineArgs[1]);
+                    }
+                    else
+                    {
+                        printf("%s", MESSAGE_LS_USAGE);
+                    }
+                }
+                else if (commandAndArgCompare(commandLineArgs, 0, COMMAND_CD))
+                {
+                    if (commandLineArgs[1] != NULL && commandLineArgs[2] == NULL)
+                    {
+                        changeDirectory(commandLineArgs[1]);
+                    }
+                    else
+                    {
+                        printf("%s", MESSAGE_CD_PATH_REQUIRED);
+                    }
+                }
+                else if (commandAndArgCompare(commandLineArgs, 0, COMMAND_CLEAR))
+                {
+                    if (commandLineArgs[1] == NULL)
+                    {
+                        clearScreen();
+                    }
+                    else
+                    {
+                        printf("%s", MESSAGE_CLEAR_USAGE);
+                    }
+                }
+                else if (commandAndArgCompare(commandLineArgs, 0, COMMAND_PWD))
+                {
+                    if (commandLineArgs[1] == NULL)
+                    {
+                        printWorkingDirectory();
+                    }
+                    else
+                    {
+                        printf("%s", MESSAGE_PWD_USAGE);
+                    }
+                
+
                 }
                 else
                 {
-                    listDirectory(commandLineArgs[1]);
+                    printf("%s", MESSAGE_UNKNOWN_COMMAND);
                 }
             }
-
-            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "cd"))
-            {
-                if (commandLineArgs[1] != NULL)
-                {
-                    changeDirectory(commandLineArgs[1]);
-                }
-            }
-
-            else if (!enteredNothing && commandAndArgCompare(commandLineArgs, 0, "clear"))
-            {
-                // how did someone find how to make this sequennce....
-                printf("\033[2J\033[H");
-                fflush(stdout);
-            }
-
-            else if (!enteredNothing)
-            {
-                // Let the loop end naturally, then fgets will ask for input again
-                printf("Unknown command\n");
-            }
-
-            
-
-
         }
     }
 
-    // returns
-    // Return 0 when the shell program ends normally
-    
     return 0;
 }
-
