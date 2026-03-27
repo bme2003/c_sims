@@ -1,32 +1,60 @@
 #include "parser.h"
+#include <stddef.h>
 
-// Phase 2 parser implementation notes
-//
-// This file is intended to hold the real parsing code later.
-// For now it only documents the structure.
-//
-// Planned implementation order:
-// 1. Move removeNewLineAtEndOfCharArray here from utilities.c
-// 2. Move initializeCommandArguments here from utilities.c
-// 3. Move tokenizeUserInput here from utilities.c
-// 4. Keep parsing-only work here and avoid putting command behavior here
-//
-// Function pseudocode:
-// removeNewLineAtEndOfCharArray:
-// - Walk through the character array until '\0'
-// - If the last real character is '\n', replace it with '\0'
+void removeNewLineAtEndOfCharArray(char inputArray[])
+{
+    int iter = 0;
 
+    while (inputArray[iter] != '\0')
+    {
+        iter = iter + 1;
+    }
 
-//
-// initializeCommandArguments:
-// - Use a for loop from 0 up to MAX_ARGUMENTS
-// - Set each commandLineArgs entry to NULL
-//
-// tokenizeUserInput:
-// - Use one index for characters in the input
-// - Use one index for which argument number is being filled
-// - Skip spaces before each token
-// - Save the start address of each token
-// - Move to the end of the token
-// - Replace separating spaces with '\0'
-// - Stop when '\0' is reached or the argument limit is reached
+    if (iter > 0 && inputArray[iter - 1] == '\n')
+    {
+        inputArray[iter - 1] = '\0';
+    }
+}
+
+void initializeCommandArguments(char *commandLineArgs[])
+{
+    int commandLineArgsItr = 0;
+
+    for (commandLineArgsItr = 0; commandLineArgsItr < MAX_ARGUMENTS; commandLineArgsItr = commandLineArgsItr + 1)
+    {
+        commandLineArgs[commandLineArgsItr] = NULL;
+    }
+}
+
+void tokenizeUserInput(char inputArray[], char *commandLineArgs[])
+{
+    int userCharItr = 0;
+    int argNumber = 0;
+
+    while (inputArray[userCharItr] != '\0' && argNumber < MAX_ARGUMENTS - 1)
+    {
+        while (inputArray[userCharItr] == ' ')
+        {
+            userCharItr = userCharItr + 1;
+        }
+
+        if (inputArray[userCharItr] != '\0')
+        {
+            commandLineArgs[argNumber] = &inputArray[userCharItr];
+            argNumber = argNumber + 1;
+
+            while (inputArray[userCharItr] != '\0' && inputArray[userCharItr] != ' ')
+            {
+                userCharItr = userCharItr + 1;
+            }
+
+            if (inputArray[userCharItr] == ' ')
+            {
+                inputArray[userCharItr] = '\0';
+                userCharItr = userCharItr + 1;
+            }
+        }
+    }
+
+    commandLineArgs[argNumber] = NULL;
+}
