@@ -20,6 +20,7 @@ OBJCOPY := missing-cross-objcopy
 endif
 
 CFLAGS = -m32 -ffreestanding -fno-pic -fno-stack-protector -nostdlib -nostartfiles -Wall -Wextra
+CFLAGS += -Iinclude
 LDFLAGS = -m elf_i386 -T linker.ld
 
 BUILD_DIR = build
@@ -30,7 +31,10 @@ KERNEL_BIN = $(BUILD_DIR)/kernel.bin
 IMAGE = $(BUILD_DIR)/os-image.bin
 
 STAGE2_SECTORS = 4
-KERNEL_SECTORS = 8
+KERNEL_C_SOURCES = $(sort $(wildcard kernel/*.c) $(wildcard kernel/*/*.c) $(wildcard kernel/*/*/*.c))
+KERNEL_OBJECTS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(KERNEL_C_SOURCES))
+KERNEL_ASM_SOURCES = $(sort $(wildcard kernel/*.asm) $(wildcard kernel/*/*.asm) $(wildcard kernel/*/*/*.asm))
+KERNEL_ASM_OBJECTS = $(patsubst %.asm,$(BUILD_DIR)/%.o,$(KERNEL_ASM_SOURCES))
 
 .PHONY: all run clean check-tools
 
@@ -48,20 +52,27 @@ $(BUILD_DIR):
 $(STAGE1_BIN): stage1.asm | $(BUILD_DIR)
 	$(ASM) -f bin stage1.asm -o $(STAGE1_BIN)
 
-$(STAGE2_BIN): stage2.asm | $(BUILD_DIR)
-	$(ASM) -f bin stage2.asm -o $(STAGE2_BIN)
-
 $(BUILD_DIR)/kernel_entry.o: kernel_entry.asm | $(BUILD_DIR)
 	$(ASM) -f elf32 kernel_entry.asm -o $(BUILD_DIR)/kernel_entry.o
 
-$(BUILD_DIR)/kernel.o: kernel.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c kernel.c -o $(BUILD_DIR)/kernel.o
+$(BUILD_DIR)/kernel/%.o: kernel/%.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(KERNEL_ELF): $(BUILD_DIR)/kernel_entry.o $(BUILD_DIR)/kernel.o linker.ld | $(BUILD_DIR)
-	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(BUILD_DIR)/kernel_entry.o $(BUILD_DIR)/kernel.o
+$(BUILD_DIR)/kernel/%.o: kernel/%.asm | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
+	$(ASM) -f elf32 $< -o $@
+
+$(KERNEL_ELF): $(BUILD_DIR)/kernel_entry.o $(KERNEL_OBJECTS) $(KERNEL_ASM_OBJECTS) linker.ld | $(BUILD_DIR)
+	$(LD) $(LDFLAGS) -o $(KERNEL_ELF) $(BUILD_DIR)/kernel_entry.o $(KERNEL_OBJECTS) $(KERNEL_ASM_OBJECTS)
 
 $(KERNEL_BIN): $(KERNEL_ELF) | $(BUILD_DIR)
 	$(OBJCOPY) -O binary $(KERNEL_ELF) $(KERNEL_BIN)
+
+$(STAGE2_BIN): stage2.asm $(KERNEL_BIN) | $(BUILD_DIR)
+	@kernel_bytes=$$(wc -c < $(KERNEL_BIN)); \
+	kernel_sectors=$$((($$kernel_bytes + 511) / 512)); \
+	$(ASM) -DKERNEL_SECTORS=$$kernel_sectors -f bin stage2.asm -o $(STAGE2_BIN)
 
 $(IMAGE): $(STAGE1_BIN) $(STAGE2_BIN) $(KERNEL_BIN) | $(BUILD_DIR)
 	dd if=/dev/zero of=$(IMAGE) bs=512 count=2880

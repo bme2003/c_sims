@@ -3,6 +3,7 @@ ENTRY(kernel_start)
 SECTIONS
 {
     . = 0x10000;
+    __kernel_start = .;
 
     .text :
     {
@@ -24,4 +25,6 @@ SECTIONS
         *(.bss*)
         *(COMMON)
     }
+
+    __kernel_end = .;
 }

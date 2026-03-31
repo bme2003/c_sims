@@ -6,6 +6,7 @@
 %define STAGE2_SECTORS      4
 
 start:
+    ; Set up a flat real-mode environment before doing BIOS work.
     cli
     xor ax, ax
     mov ds, ax
@@ -35,11 +36,13 @@ start:
     jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
 
 disk_error:
+    ; Stop here if the BIOS disk read fails so the error stays visible.
     mov si, disk_error_message
     call print_string
     jmp $
 
 print_string:
+    ; Print a null-terminated string with BIOS teletype output.
     lodsb
     test al, al
     jz .done
