@@ -31,6 +31,7 @@ struct cpu_context
 struct task
 {
     int pid;
+    const char *name;
     enum task_state state;
     uint32_t *kernel_stack_base;
     uint32_t *kernel_stack_top;

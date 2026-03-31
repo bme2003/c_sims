@@ -597,9 +597,11 @@ Files:
 What exists now:
 
 - real task structs
+- named tasks for easier scheduler introspection
 - per-task stack pages
 - PID assignment
 - fixed-size task table
+- explicit idle task fallback
 - first runnable task entry via assembly
 - cooperative yield-based task switching
 - timer-guided yield requests from PIT ticks
@@ -616,6 +618,7 @@ What the current tests prove:
 - the kernel can jump into the first runnable task’s saved context
 - the kernel can cooperatively switch from one task to another
 - the timer can now ask tasks to yield after a small quantum
+- the scheduler has an idle fallback when normal work is unavailable
 
 ## Why Some Parts Look "Insane"
 

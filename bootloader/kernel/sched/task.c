@@ -7,6 +7,7 @@ extern void context_switch(struct cpu_context *old_context, struct cpu_context *
 
 static struct task task_table[MAX_TASKS];
 static struct task *current_task = (struct task *)0;
+static struct task *idle_task = (struct task *)0;
 static uint32_t live_task_count = 0;
 static uint32_t scheduler_ticks = 0;
 static volatile int reschedule_requested = 0;
@@ -31,6 +32,7 @@ static void clear_context(struct cpu_context *context)
 static void clear_task(struct task *task)
 {
     task->pid = 0;
+    task->name = (const char *)0;
     task->state = TASK_UNUSED;
     task->kernel_stack_base = (uint32_t *)0;
     task->kernel_stack_top = (uint32_t *)0;
@@ -74,6 +76,11 @@ static struct task *pick_next_runnable_task(void)
         }
     }
 
+    if (idle_task != (struct task *)0 && idle_task->state == TASK_RUNNABLE)
+    {
+        return idle_task;
+    }
+
     return current_task;
 }
 
@@ -88,14 +95,15 @@ void task_init(void)
     }
 
     current_task = (struct task *)0;
+    idle_task = (struct task *)0;
     live_task_count = 0;
     scheduler_ticks = 0;
     reschedule_requested = 0;
     next_pid = 1;
 }
 
-/* Create one kernel task with its own stack and an initial saved context. */
-struct task *task_create_kernel(void (*entry)(void))
+/* Create one named kernel task with its own stack and an initial saved context. */
+struct task *task_create_kernel_named(const char *name, void (*entry)(void))
 {
     struct task *task = find_free_task_slot();
     void *stack_page = (void *)0;
@@ -113,6 +121,7 @@ struct task *task_create_kernel(void (*entry)(void))
 
     clear_task(task);
     task->pid = next_pid++;
+    task->name = name;
     task->state = TASK_RUNNABLE;
     task->kernel_stack_base = (uint32_t *)stack_page;
     task->kernel_stack_top = (uint32_t *)((uint32_t)stack_page + KERNEL_STACK_SIZE);
@@ -124,10 +133,27 @@ struct task *task_create_kernel(void (*entry)(void))
     return task;
 }
 
+/* Create one unnamed kernel task when no label is provided yet. */
+struct task *task_create_kernel(void (*entry)(void))
+{
+    return task_create_kernel_named("unnamed", entry);
+}
+
 /* Report which task is currently active once real switching is added later. */
 struct task *scheduler_current_task(void)
 {
     return current_task;
+}
+
+/* Report the current task name so logs can describe scheduler state. */
+const char *scheduler_current_task_name(void)
+{
+    if (current_task == (struct task *)0 || current_task->name == (const char *)0)
+    {
+        return "none";
+    }
+
+    return current_task->name;
 }
 
 /* Start the first runnable task by loading its saved context in assembly. */
@@ -188,4 +214,10 @@ void scheduler_yield(void)
 uint32_t scheduler_task_count(void)
 {
     return live_task_count;
+}
+
+/* Register one task as the scheduler fallback when nothing else can run. */
+void scheduler_set_idle_task(struct task *task)
+{
+    idle_task = task;
 }

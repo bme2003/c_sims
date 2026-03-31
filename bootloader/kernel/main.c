@@ -74,6 +74,17 @@ static void task_b_entry(void)
     }
 }
 
+/* Sleep forever when the scheduler has no normal runnable work. */
+static void idle_task_entry(void)
+{
+    console_write("idle task entered\n");
+
+    for (;;)
+    {
+        __asm__ volatile ("hlt");
+    }
+}
+
 /* Idle the kernel while still servicing interrupt-driven debug actions. */
 static void kernel_wait_loop(void)
 {
@@ -181,11 +192,21 @@ void kernel_main(const struct boot_info *boot)
     }
     paging_mapping_smoke_test();
     task_init();
-    if (task_create_kernel(task_a_entry) == (struct task *)0)
+    {
+        struct task *idle_task = task_create_kernel_named("idle", idle_task_entry);
+
+        if (idle_task == (struct task *)0)
+        {
+            panic("idle task creation failed");
+        }
+
+        scheduler_set_idle_task(idle_task);
+    }
+    if (task_create_kernel_named("task_a", task_a_entry) == (struct task *)0)
     {
         panic("task_a creation failed");
     }
-    if (task_create_kernel(task_b_entry) == (struct task *)0)
+    if (task_create_kernel_named("task_b", task_b_entry) == (struct task *)0)
     {
         panic("task_b creation failed");
     }
