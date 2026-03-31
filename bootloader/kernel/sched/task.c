@@ -1,3 +1,4 @@
+#include "kernel/console.h"
 #include "kernel/pmm.h"
 #include "kernel/panic.h"
 #include "kernel/sched.h"
@@ -10,8 +11,40 @@ static struct task *current_task = (struct task *)0;
 static struct task *idle_task = (struct task *)0;
 static uint32_t live_task_count = 0;
 static uint32_t scheduler_ticks = 0;
+static uint32_t scheduler_switches = 0;
 static volatile int reschedule_requested = 0;
 static int next_pid = 1;
+
+#define SCHED_STATUS_ROW 24u
+
+/* Write spaces over the scheduler status area before drawing fresh text. */
+static void clear_scheduler_status_line(void)
+{
+    uint32_t column = 0;
+
+    for (column = 0; column < 79u; column++)
+    {
+        console_putc_at(SCHED_STATUS_ROW, column, ' ');
+    }
+}
+
+/* Draw the current scheduler state on the bottom line of the screen. */
+static void refresh_scheduler_status(void)
+{
+    static const char hex_digits[] = "0123456789ABCDEF";
+    uint32_t value = scheduler_switches;
+    int nibble = 0;
+
+    clear_scheduler_status_line();
+    console_write_at(SCHED_STATUS_ROW, 0, "task: ");
+    console_write_at(SCHED_STATUS_ROW, 6, scheduler_current_task_name());
+    console_write_at(SCHED_STATUS_ROW, 24, "switches: 0x");
+
+    for (nibble = 7; nibble >= 0; nibble--)
+    {
+        console_putc_at(SCHED_STATUS_ROW, 36u + (uint32_t)(7 - nibble), hex_digits[(value >> (nibble * 4)) & 0x0Fu]);
+    }
+}
 
 /* Clear one saved CPU context before it is attached to a fresh task. */
 static void clear_context(struct cpu_context *context)
@@ -70,7 +103,7 @@ static struct task *pick_next_runnable_task(void)
     {
         uint32_t index = (start_index + offset) % MAX_TASKS;
 
-        if (task_table[index].state == TASK_RUNNABLE)
+        if (&task_table[index] != idle_task && task_table[index].state == TASK_RUNNABLE)
         {
             return &task_table[index];
         }
@@ -98,6 +131,7 @@ void task_init(void)
     idle_task = (struct task *)0;
     live_task_count = 0;
     scheduler_ticks = 0;
+    scheduler_switches = 0;
     reschedule_requested = 0;
     next_pid = 1;
 }
@@ -163,6 +197,7 @@ void scheduler_start(void)
     if (current_task != (struct task *)0)
     {
         current_task->state = TASK_RUNNING;
+        refresh_scheduler_status();
         context_enter_first_task(&current_task->context);
     }
 
@@ -207,6 +242,8 @@ void scheduler_yield(void)
 
     next->state = TASK_RUNNING;
     current_task = next;
+    scheduler_switches++;
+    refresh_scheduler_status();
     context_switch(&previous->context, &next->context);
 }
 
@@ -214,6 +251,12 @@ void scheduler_yield(void)
 uint32_t scheduler_task_count(void)
 {
     return live_task_count;
+}
+
+/* Report how many task-to-task switches the scheduler has completed so far. */
+uint32_t scheduler_switch_count(void)
+{
+    return scheduler_switches;
 }
 
 /* Register one task as the scheduler fallback when nothing else can run. */

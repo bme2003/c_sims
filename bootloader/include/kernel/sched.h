@@ -13,6 +13,7 @@ void scheduler_yield(void);
 struct task *scheduler_current_task(void);
 const char *scheduler_current_task_name(void);
 uint32_t scheduler_task_count(void);
+uint32_t scheduler_switch_count(void);
 void scheduler_set_idle_task(struct task *task);
 
 #endif

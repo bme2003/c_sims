@@ -605,6 +605,8 @@ What exists now:
 - first runnable task entry via assembly
 - cooperative yield-based task switching
 - timer-guided yield requests from PIT ticks
+- live scheduler status display and switch counter
+- demo task pacing driven by real PIT ticks instead of busy-spin delays
 
 What does not exist yet:
 
@@ -619,6 +621,8 @@ What the current tests prove:
 - the kernel can cooperatively switch from one task to another
 - the timer can now ask tasks to yield after a small quantum
 - the scheduler has an idle fallback when normal work is unavailable
+- the active task and switch count can be observed directly on screen
+- the demo tasks now progress according to real timer ticks
 
 ## Why Some Parts Look "Insane"
 

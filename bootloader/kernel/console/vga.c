@@ -105,6 +105,18 @@ void console_putc_at(uint32_t row, uint32_t column, char character)
     write_cell(row, column, character);
 }
 
+/* Write a string at a fixed screen position without moving the main cursor. */
+void console_write_at(uint32_t row, uint32_t column, const char *message)
+{
+    uint32_t index = 0;
+
+    while (message[index] != '\0' && row < VGA_HEIGHT && (column + index) < VGA_WIDTH)
+    {
+        write_cell(row, column + index, message[index]);
+        index++;
+    }
+}
+
 /* Write a null-terminated string through the console character routine. */
 void console_write(const char *message)
 {

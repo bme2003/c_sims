@@ -10,16 +10,6 @@
 #include "kernel/pmm.h"
 #include "kernel/sched.h"
 
-/* Burn a small amount of time so task output stays readable on screen. */
-static void busy_delay(void)
-{
-    volatile uint32_t index = 0;
-
-    for (index = 0; index < 500000u; index++)
-    {
-    }
-}
-
 /* Keep the existing keyboard-driven exception self-test available inside tasks. */
 static void handle_exception_test_request(const char *source_label)
 {
@@ -40,19 +30,42 @@ static void handle_exception_test_request(const char *source_label)
     }
 }
 
+/* Wait for the PIT tick to advance while still honoring scheduler and debug events. */
+static uint32_t wait_for_next_tick(uint32_t last_tick, const char *source_label)
+{
+    uint32_t current_tick = pit_get_ticks();
+
+    while (current_tick == last_tick)
+    {
+        handle_exception_test_request(source_label);
+        if (scheduler_should_yield())
+        {
+            scheduler_yield();
+        }
+        __asm__ volatile ("hlt");
+        current_tick = pit_get_ticks();
+    }
+
+    return current_tick;
+}
+
 /* First demo task for cooperative scheduler bring-up. */
 static void task_a_entry(void)
 {
+    uint32_t last_tick = pit_get_ticks();
+    uint32_t emit_divider = 0;
+
     console_write("task A entered\n");
 
     for (;;)
     {
-        console_putc('A');
-        busy_delay();
-        handle_exception_test_request("task A");
-        if (scheduler_should_yield())
+        last_tick = wait_for_next_tick(last_tick, "task A");
+        emit_divider++;
+
+        if (emit_divider >= 2u)
         {
-            scheduler_yield();
+            console_putc('A');
+            emit_divider = 0;
         }
     }
 }
@@ -60,16 +73,20 @@ static void task_a_entry(void)
 /* Second demo task for cooperative scheduler bring-up. */
 static void task_b_entry(void)
 {
+    uint32_t last_tick = pit_get_ticks();
+    uint32_t emit_divider = 0;
+
     console_write("task B entered\n");
 
     for (;;)
     {
-        console_putc('B');
-        busy_delay();
-        handle_exception_test_request("task B");
-        if (scheduler_should_yield())
+        last_tick = wait_for_next_tick(last_tick, "task B");
+        emit_divider++;
+
+        if (emit_divider >= 3u)
         {
-            scheduler_yield();
+            console_putc('B');
+            emit_divider = 0;
         }
     }
 }
@@ -81,6 +98,11 @@ static void idle_task_entry(void)
 
     for (;;)
     {
+        handle_exception_test_request("idle task");
+        if (scheduler_should_yield())
+        {
+            scheduler_yield();
+        }
         __asm__ volatile ("hlt");
     }
 }
