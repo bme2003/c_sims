@@ -15,7 +15,7 @@ This directory contains a minimal from-scratch boot path:
 3. Stage 2 prints a short message and loads the kernel from fixed sectors.
 4. Stage 2 enables A20, loads a tiny GDT, and enters 32-bit protected mode.
 5. Stage 2 jumps to the kernel entry point at `0x10000`.
-6. The kernel writes `Hello from your kernel` to VGA text memory.
+6. The kernel receives basic boot information and writes status text to VGA text memory.
 
 ## Required tools
 
@@ -53,7 +53,7 @@ make run
 
 - This project uses fixed disk sectors for simplicity.
 - Stage 2 is expected to fit in 4 sectors.
-- The kernel is expected to fit in 8 sectors and begins at BIOS sector 6.
+- The kernel is currently loaded from BIOS sector 6 and is expected to fit within the configured kernel sector count in the loader and Makefile.
 - This is a learning scaffold, not yet a flexible bootloader.
 
 Good next steps are:
