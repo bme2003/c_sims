@@ -35,6 +35,9 @@ struct task
     enum task_state state;
     uint32_t *kernel_stack_base;
     uint32_t *kernel_stack_top;
+    uint32_t run_ticks;
+    uint32_t yield_count;
+    uint32_t switch_count;
     struct cpu_context context;
 };
 

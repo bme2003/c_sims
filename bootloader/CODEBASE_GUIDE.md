@@ -607,6 +607,7 @@ What exists now:
 - timer-guided yield requests from PIT ticks
 - live scheduler status display and switch counter
 - demo task pacing driven by real PIT ticks instead of busy-spin delays
+- per-task runtime counters for ticks, yields, and switches
 
 What does not exist yet:
 
@@ -623,6 +624,7 @@ What the current tests prove:
 - the scheduler has an idle fallback when normal work is unavailable
 - the active task and switch count can be observed directly on screen
 - the demo tasks now progress according to real timer ticks
+- the scheduler now tracks per-task runtime activity in visible counters
 
 ## Why Some Parts Look "Insane"
 

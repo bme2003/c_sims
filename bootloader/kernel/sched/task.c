@@ -16,6 +16,7 @@ static volatile int reschedule_requested = 0;
 static int next_pid = 1;
 
 #define SCHED_STATUS_ROW 24u
+#define SCHED_DETAIL_ROW 23u
 
 /* Write spaces over the scheduler status area before drawing fresh text. */
 static void clear_scheduler_status_line(void)
@@ -28,21 +29,47 @@ static void clear_scheduler_status_line(void)
     }
 }
 
-/* Draw the current scheduler state on the bottom line of the screen. */
-static void refresh_scheduler_status(void)
+/* Write spaces over the scheduler detail area before drawing fresh text. */
+static void clear_scheduler_detail_line(void)
+{
+    uint32_t column = 0;
+
+    for (column = 0; column < 79u; column++)
+    {
+        console_putc_at(SCHED_DETAIL_ROW, column, ' ');
+    }
+}
+
+/* Render one 32-bit value in hex at a fixed screen position. */
+static void write_hex32_at(uint32_t row, uint32_t column, uint32_t value)
 {
     static const char hex_digits[] = "0123456789ABCDEF";
-    uint32_t value = scheduler_switches;
     int nibble = 0;
-
-    clear_scheduler_status_line();
-    console_write_at(SCHED_STATUS_ROW, 0, "task: ");
-    console_write_at(SCHED_STATUS_ROW, 6, scheduler_current_task_name());
-    console_write_at(SCHED_STATUS_ROW, 24, "switches: 0x");
 
     for (nibble = 7; nibble >= 0; nibble--)
     {
-        console_putc_at(SCHED_STATUS_ROW, 36u + (uint32_t)(7 - nibble), hex_digits[(value >> (nibble * 4)) & 0x0Fu]);
+        console_putc_at(row, column + (uint32_t)(7 - nibble), hex_digits[(value >> (nibble * 4)) & 0x0Fu]);
+    }
+}
+
+/* Draw the current scheduler state on the bottom line of the screen. */
+static void refresh_scheduler_status(void)
+{
+    clear_scheduler_status_line();
+    clear_scheduler_detail_line();
+    console_write_at(SCHED_STATUS_ROW, 0, "task: ");
+    console_write_at(SCHED_STATUS_ROW, 6, scheduler_current_task_name());
+    console_write_at(SCHED_STATUS_ROW, 24, "switches: 0x");
+    write_hex32_at(SCHED_STATUS_ROW, 36u, scheduler_switches);
+
+    if (current_task != (struct task *)0)
+    {
+        console_write_at(SCHED_DETAIL_ROW, 0, "pid: 0x");
+        write_hex32_at(SCHED_DETAIL_ROW, 8u, (uint32_t)current_task->pid);
+        console_write_at(SCHED_DETAIL_ROW, 20u, "ticks: 0x");
+        write_hex32_at(SCHED_DETAIL_ROW, 30u, current_task->run_ticks);
+        console_write_at(SCHED_DETAIL_ROW, 42u, "yields: 0x");
+        write_hex32_at(SCHED_DETAIL_ROW, 53u, current_task->yield_count);
     }
 }
 
@@ -69,6 +96,9 @@ static void clear_task(struct task *task)
     task->state = TASK_UNUSED;
     task->kernel_stack_base = (uint32_t *)0;
     task->kernel_stack_top = (uint32_t *)0;
+    task->run_ticks = 0;
+    task->yield_count = 0;
+    task->switch_count = 0;
     clear_context(&task->context);
 }
 
@@ -162,6 +192,7 @@ struct task *task_create_kernel_named(const char *name, void (*entry)(void))
     task->context.esp = (uint32_t)task->kernel_stack_top;
     task->context.eip = (uint32_t)entry;
     task->context.eflags = 0x00000202u;
+    task->switch_count = 0;
     live_task_count++;
 
     return task;
@@ -213,6 +244,12 @@ void scheduler_timer_tick(void)
     {
         reschedule_requested = 1;
     }
+
+    if (current_task != (struct task *)0)
+    {
+        current_task->run_ticks++;
+        refresh_scheduler_status();
+    }
 }
 
 /* Let task code observe and consume one pending reschedule request. */
@@ -240,7 +277,9 @@ void scheduler_yield(void)
         previous->state = TASK_RUNNABLE;
     }
 
+    previous->yield_count++;
     next->state = TASK_RUNNING;
+    next->switch_count++;
     current_task = next;
     scheduler_switches++;
     refresh_scheduler_status();
